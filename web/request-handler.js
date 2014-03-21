@@ -4,9 +4,14 @@ var path = require('path');
 var archive = require('./archive.js');
 //responders ==============================================
 //respond with content of a file, either static or archived
-var respondFile= function(res, contentType, content){
+var respondFile = function(res, contentType, content){
   res.writeHead(200, {'Content-Type': contentType});
   res.end(content);
+};
+
+var respondNotFound = function(res){
+  res.writeHead(404, {'Content-Type': 'text/plain'});
+  res.end('not found');
 };
 
 //servers =================================================
@@ -32,7 +37,19 @@ var serveAsset = function(req, res, urlTokens){
 //ask the archive module to repond with archived html
 var getArchive = function(req, res, urlTokens){
   archive.loadFile(urlTokens[0], function(contentType, content){
-    respondFile(res, contentType, content);
+    if(!contentType){
+      //loading screen
+      console.log('loading screen about to fire');
+      publicFiles.loadFile(paths.siteAssets + '/loading.html', function publicLF(contentType, content){
+        respondFile(res, contentType, content);
+      });
+    } else if (contentType === 404){
+      respondNotFound(res);
+    } else {
+      //give back html
+      console.log('starting response', contentType);
+      respondFile(res, contentType, content);
+    }
   });
 };
 
@@ -45,18 +62,7 @@ var postArchive = function(req, res){
     console.log('in dataChunk');
   });
   req.on('end', function(){
-    archive.loadFile(message.slice(4), function(contentType, content){
-      if(!contentType){
-        //loading screen
-        console.log('loading screen about to fire');
-        publicFiles.loadFile(paths.siteAssets + '/loading.html', function publicLF(contentType, content){
-          respondFile(res, contentType, content);
-        });
-      } else {
-        //give back html
-        respondFile(res, contentType, content);
-      }
-    });
+    getArchive(req, res, [message.slice(4)]);
   });
 };
 
